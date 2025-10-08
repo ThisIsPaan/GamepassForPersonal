@@ -4,6 +4,7 @@ const axios = require('axios');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// 🔄 Convert username to userId
 async function getUserIdFromUsername(username) {
   try {
     const response = await axios.post(
@@ -21,6 +22,7 @@ async function getUserIdFromUsername(username) {
   }
 }
 
+// 🎮 Fetch user experiences
 async function fetchUserExperiences(userId, maxExperiences = 5) {
   try {
     const response = await axios.get(
@@ -33,6 +35,7 @@ async function fetchUserExperiences(userId, maxExperiences = 5) {
   }
 }
 
+// 🛒 Fetch gamepasses for a universe
 async function fetchGamepasses(universeId) {
   try {
     const response = await axios.get(
@@ -45,6 +48,7 @@ async function fetchGamepasses(universeId) {
   }
 }
 
+// 📦 Fetch gamepass details
 async function fetchGamepassDetails(gamepassId) {
   try {
     const response = await axios.get(
@@ -57,14 +61,9 @@ async function fetchGamepassDetails(gamepassId) {
   }
 }
 
-app.get('/gamepasses/:userId', async (req, res) => {
+// 🔁 Shared handler for both routes
+async function handleGamepassRequest(userId, res) {
   try {
-    const userId = req.params.userId;
-
-    if (!userId || isNaN(userId)) {
-      return res.status(400).json({ error: 'Invalid userId. Must be a number.' });
-    }
-
     const experiences = await fetchUserExperiences(userId, 5);
 
     if (experiences.length === 0) {
@@ -109,8 +108,18 @@ app.get('/gamepasses/:userId', async (req, res) => {
       message: error.message 
     });
   }
+}
+
+// 🔗 Route using userId
+app.get('/gamepasses/:userId', async (req, res) => {
+  const userId = req.params.userId;
+  if (!userId || isNaN(userId)) {
+    return res.status(400).json({ error: 'Invalid userId. Must be a number.' });
+  }
+  await handleGamepassRequest(userId, res);
 });
 
+// 🔗 Route using username
 app.get('/gamepasses/username/:username', async (req, res) => {
   const username = req.params.username;
   const userId = await getUserIdFromUsername(username);
@@ -119,10 +128,10 @@ app.get('/gamepasses/username/:username', async (req, res) => {
     return res.status(404).json({ error: 'User not found or Roblox API failed' });
   }
 
-  req.params.userId = userId;
-  app._router.handle(req, res, () => {});
+  await handleGamepassRequest(userId, res);
 });
 
+// 🏠 Root route
 app.get('/', (req, res) => {
   res.json({
     message: 'Roblox Gamepass Fetcher API',
@@ -132,6 +141,7 @@ app.get('/', (req, res) => {
   });
 });
 
+// 🚀 Start server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`);
 });
