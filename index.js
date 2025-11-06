@@ -48,7 +48,7 @@ async function resolveUniverseId(placeId) {
   }
 }
 
-// 🛒 Fetch gamepasses for a universe (new API)
+// 🛒 Fetch gamepasses for a universe
 async function fetchGamepasses(universeId) {
   try {
     const response = await axios.get(
