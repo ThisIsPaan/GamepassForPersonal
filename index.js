@@ -54,7 +54,7 @@ async function fetchGamepasses(universeId) {
     const response = await axios.get(
       `https://apis.roblox.com/game-passes/v1/universes/${universeId}/game-passes?passView=Full&pageSize=50&pageToken=`
     );
-    return response.data.data || [];
+    return response.data.gamePasses || [];
   } catch (error) {
     console.error(`Error fetching gamepasses for universe ${universeId}:`, error.message);
     return [];
@@ -90,7 +90,7 @@ async function handleGamepassRequest(userId, res) {
     const allGamepasses = [];
 
     for (const experience of experiences) {
-      const placeId = experience.rootPlace?.id || null;
+      const placeId = experience.rootPlace?.id;
       const universeId = await resolveUniverseId(placeId);
       if (!universeId) continue;
 
@@ -102,9 +102,10 @@ async function handleGamepassRequest(userId, res) {
         allGamepasses.push({
           id: gamepass.id,
           name: gamepass.name,
-          price: details?.PriceInRobux || 0,
-          imageAssetId: details?.IconImageAssetId || null,
-          placeId
+          price: gamepass.price ?? details?.PriceInRobux ?? 0,
+          imageAssetId: gamepass.displayIconImageAssetId ?? details?.IconImageAssetId ?? null,
+          placeId,
+          isForSale: gamepass.isForSale ?? false
         });
       }
     }
@@ -151,7 +152,7 @@ app.get('/', (req, res) => {
     message: 'Roblox Gamepass Fetcher API',
     usage: 'GET /gamepasses/:userId or /gamepasses/username/:username',
     example_userId: '/gamepasses/360475870',
-    example_username: '/gamepasses/username/Inspacto'
+    example_username: '/gamepasses/username/ThisIsPaan'
   });
 });
 
