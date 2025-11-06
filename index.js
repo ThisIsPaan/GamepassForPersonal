@@ -22,28 +22,15 @@ async function getUserIdFromUsername(username) {
   }
 }
 
-// 🎮 Fetch user experiences
-async function fetchUserExperiences(userId, maxExperiences = 5) {
+// 🛒 Fetch gamepasses from user inventory (assetTypeId 34)
+async function fetchUserGamepasses(userId, limit = 50) {
   try {
     const response = await axios.get(
-      `https://games.roblox.com/v2/users/${userId}/games?limit=10&sortOrder=Desc`
-    );
-    const experiences = response.data.data || [];
-    return experiences.slice(0, maxExperiences);
-  } catch (error) {
-    throw new Error(`Failed to fetch user experiences: ${error.message}`);
-  }
-}
-
-// 🛒 Fetch gamepasses for a universe
-async function fetchGamepasses(universeId) {
-  try {
-    const response = await axios.get(
-      `https://games.roblox.com/v1/games/${universeId}/game-passes?limit=50&sortOrder=Asc`
+      `https://roproxy.com/users/${userId}/inventory?assetTypeId=34&limit=${limit}`
     );
     return response.data.data || [];
   } catch (error) {
-    console.error(`Error fetching gamepasses for universe ${universeId}:`, error.message);
+    console.error(`Error fetching gamepasses for user ${userId}:`, error.message);
     return [];
   }
 }
@@ -61,51 +48,41 @@ async function fetchGamepassDetails(gamepassId) {
   }
 }
 
-// 🔁 Shared handler for both routes
+// 🔁 Shared handler
 async function handleGamepassRequest(userId, res) {
   try {
-    const experiences = await fetchUserExperiences(userId, 5);
+    const gamepasses = await fetchUserGamepasses(userId, 50);
 
-    if (experiences.length === 0) {
-      return res.json({ 
+    if (gamepasses.length === 0) {
+      return res.json({
         userId,
-        message: 'No experiences found for this user',
-        gamepasses: [] 
+        message: 'No gamepasses found for this user',
+        gamepasses: []
       });
     }
 
     const allGamepasses = [];
 
-    for (const experience of experiences) {
-      const universeId = experience.id;
-      const placeId = experience.rootPlace?.id || null;
-
-      const gamepasses = await fetchGamepasses(universeId);
-
-      for (const gamepass of gamepasses) {
-        const details = await fetchGamepassDetails(gamepass.id);
-        
-        allGamepasses.push({
-          id: gamepass.id,
-          name: gamepass.name,
-          price: details?.PriceInRobux || 0,
-          imageAssetId: details?.IconImageAssetId || null,
-          placeId: placeId
-        });
-      }
+    for (const gp of gamepasses) {
+      const details = await fetchGamepassDetails(gp.assetId);
+      allGamepasses.push({
+        id: gp.assetId,
+        name: gp.name,
+        price: details?.PriceInRobux || 0,
+        imageAssetId: details?.IconImageAssetId || null
+      });
     }
 
     res.json({
       userId,
-      totalExperiences: experiences.length,
       totalGamepasses: allGamepasses.length,
       gamepasses: allGamepasses
     });
 
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch gamepasses',
-      message: error.message 
+      message: error.message
     });
   }
 }
