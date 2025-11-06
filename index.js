@@ -39,7 +39,7 @@ async function fetchUserExperiences(userId, maxExperiences = 5) {
 async function fetchGamepasses(universeId) {
   try {
     const response = await axios.get(
-      `https://games.roblox.com/v1/games/${universeId}/game-passes?limit=50&sortOrder=Asc`
+      `https://apis.roblox.com/game-passes/v1/universes/${universeId}/game-passes?passView=Full&pageSize=50&pageToken=`
     );
     return response.data.data || [];
   } catch (error) {
