@@ -35,27 +35,30 @@ async function fetchUserExperiences(userId, maxExperiences = 5) {
   }
 }
 
-// 🛒 Fetch all gamepasses for a universe (with pagination)
-async function fetchAllGamepasses(universeId) {
-  const all = [];
-  let pageToken = '';
-
+// 🧭 Resolve universeId from placeId
+async function resolveUniverseId(placeId) {
   try {
-    while (true) {
-      const url = `https://apis.roblox.com/game-passes/v1/universes/${universeId}/game-passes?passView=Full&pageSize=50&pageToken=${pageToken}`;
-      const response = await axios.get(url);
-      const data = response.data;
-
-      all.push(...(data.data || []));
-
-      if (!data.nextPageToken) break;
-      pageToken = data.nextPageToken;
-    }
+    const response = await axios.get(
+      `https://apis.roblox.com/universes/v1/places/${placeId}/universe`
+    );
+    return response.data.universeId;
   } catch (error) {
-    console.error(`Error fetching paginated gamepasses for universe ${universeId}:`, error.message);
+    console.error(`Failed to resolve universeId from placeId ${placeId}:`, error.message);
+    return null;
   }
+}
 
-  return all;
+// 🛒 Fetch gamepasses for a universe (new API)
+async function fetchGamepasses(universeId) {
+  try {
+    const response = await axios.get(
+      `https://apis.roblox.com/game-passes/v1/universes/${universeId}/game-passes?passView=Full&pageSize=50&pageToken=`
+    );
+    return response.data.data || [];
+  } catch (error) {
+    console.error(`Error fetching gamepasses for universe ${universeId}:`, error.message);
+    return [];
+  }
 }
 
 // 📦 Fetch gamepass details
@@ -87,25 +90,23 @@ async function handleGamepassRequest(userId, res) {
     const allGamepasses = [];
 
     for (const experience of experiences) {
-      const universeId = experience.id;
       const placeId = experience.rootPlace?.id || null;
+      const universeId = await resolveUniverseId(placeId);
+      if (!universeId) continue;
 
-      const gamepasses = await fetchAllGamepasses(universeId);
+      const gamepasses = await fetchGamepasses(universeId);
 
-      const detailedGamepasses = await Promise.all(
-        gamepasses.map(async (gamepass) => {
-          const details = await fetchGamepassDetails(gamepass.id);
-          return {
-            id: gamepass.id,
-            name: gamepass.name,
-            price: details?.PriceInRobux || 0,
-            imageAssetId: details?.IconImageAssetId || null,
-            placeId
-          };
-        })
-      );
+      for (const gamepass of gamepasses) {
+        const details = await fetchGamepassDetails(gamepass.id);
 
-      allGamepasses.push(...detailedGamepasses);
+        allGamepasses.push({
+          id: gamepass.id,
+          name: gamepass.name,
+          price: details?.PriceInRobux || 0,
+          imageAssetId: details?.IconImageAssetId || null,
+          placeId
+        });
+      }
     }
 
     res.json({
@@ -153,9 +154,6 @@ app.get('/', (req, res) => {
     example_username: '/gamepasses/username/Inspacto'
   });
 });
-
-// 🩺 Health check
-app.get('/health', (req, res) => res.send('OK'));
 
 // 🚀 Start server
 app.listen(PORT, '0.0.0.0', () => {
